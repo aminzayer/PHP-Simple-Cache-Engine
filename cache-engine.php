@@ -1,65 +1,119 @@
 <?php
-// This Class is Simple Cache Engine For PHP page Serving Develop By Amin Zayeromali :> https://aminzayer.ir
+
+declare(strict_types=1);
+
+/**
+ * A simple file-based cache engine for PHP.
+ *
+ * @author Amin Zayeromali
+ * @link https://aminzayer.ir
+ */
 class PHP_Cache_Engine
 {
-    // Properties
-    public bool $show_log;   // Show Cache Log on End of the cached Page
-    public $uri_cache_file;  // Address of cached file
-    public $expire_time;     // Expire Time For Cached file
-    private $time_start;     // Time of Caching Start 
-    private $cache_folder_Path;   // Cache Folder Adress
-    private $cache_file_name;    // Cache File Name
-    private $root_dir;       // Root Address of PHP File
+    /**
+     * @var bool Determines whether to show cache logs at the end of the cached page.
+     */
+    private bool $show_log;
 
+    /**
+     * @var int The cache expiration time in seconds.
+     */
+    private int $expire_time;
 
-    //__construct
-    function __construct($cache_expire_time, $show_cache_log)  // initializing Cache Engine
-    {
-        // show log on end of cached files
-        $this->show_log = $show_cache_log;
-        // get Root dir
-        $this->root_dir = basename(__DIR__);
-        // create cache folder
-        $this->cache_folder_Path = $this->current_dir . "/cache/";
-        if (!is_dir($this->cache_folder_Path))  // check cache folder exist
-        {
-            mkdir($this->cache_folder_Path, 0777, true);
-        }
-        $this->cache_file_name = md5($_SERVER['REQUEST_URI']); // create unique name for cached file in cache folder
-        $this->uri_cache_file = $this->cache_folder_Path . "/" . $this->cache_file_name . ".html";   // Create Page Address For Caching on
-        $this->expire_time = $cache_expire_time; // set Expire time for cache engine
-    }
+    /**
+     * @var float The start time of the caching process.
+     */
+    private float $time_start;
 
-    // Methods
-    function Set_Show_Cache_Log($show_cache_log)
-    {
-        $this->show_log = $show_cache_log; // set time star
-    }
-    function Set_Expire_Time($cache_expire_time)
+    /**
+     * @var string The full path to the cache folder.
+     */
+    private string $cache_folder_path;
+
+    /**
+     * @var string The full path to the cached file.
+     */
+    private string $cache_file_path;
+
+    /**
+     * Initializes the Cache Engine.
+     *
+     * @param int    $cache_expire_time The cache expiration time in seconds.
+     * @param string $request_uri       The request URI to be cached.
+     * @param bool   $show_cache_log    Whether to show cache logs.
+     */
+    public function __construct(int $cache_expire_time, string $request_uri, bool $show_cache_log = false)
     {
         $this->expire_time = $cache_expire_time;
+        $this->show_log = $show_cache_log;
+
+        $this->cache_folder_path = __DIR__ . '/cache/';
+        if (!is_dir($this->cache_folder_path)) {
+            mkdir($this->cache_folder_path, 0777, true);
+        }
+
+        $cache_file_name = md5($request_uri);
+        $this->cache_file_path = $this->cache_folder_path . $cache_file_name . '.html';
     }
-    function Cache_Start() // Caching Start ---> when this method called, cached file checking & refreshing again
+
+    /**
+     * Starts the caching process.
+     *
+     * If a valid cache file exists, it is served directly. Otherwise, output
+     * buffering is started to capture the new content.
+     *
+     * @return void
+     */
+    public function start(): void
     {
-        $this->time_start = microtime();
-        if (file_exists($this->uri_cache_file) && (time() - $this->expire_time < filemtime($this->uri_cache_file))) {
-            include($this->uri_cache_file);
+        $this->time_start = microtime(true);
+
+        if (file_exists($this->cache_file_path) && (time() - $this->expire_time < filemtime($this->cache_file_path))) {
+            readfile($this->cache_file_path);
             exit;
         }
+
         ob_start();
     }
-    function Cache_Complete() // Caching Complete & log in cached file
+
+    /**
+     * Completes the caching process.
+     *
+     * The captured output buffer is saved to the cache file.
+     *
+     * @return void
+     */
+    public function complete(): void
     {
-        // open the cache file for writing
-        $fp = fopen($this->uri_cache_file, 'w');
-        // save the contents of output buffer to the file
+        $content = ob_get_contents();
+        $cache_creation_time = time();
+
         if ($this->show_log) {
-            echo "<!-- Cached By Cache Engine at " . date('jS F Y H:i', filemtime($this->uri_cache_file)) . " and Refresh on " . date('jS F Y H:i', filemtime($this->uri_cache_file) + $this->expire_time) . " - Page Made Time : " . (microtime() - $this->time_start) . " Seconds  // this engine Coded By Amin Zayeromali - https://aminzayer.ir -->";
+            $log_message = sprintf(
+                "<!-- Cached By Cache Engine at %s and Refresh on %s - Page Made Time : %.5f Seconds -->",
+                date('Y-m-d H:i:s', $cache_creation_time),
+                date('Y-m-d H:i:s', $cache_creation_time + $this->expire_time),
+                microtime(true) - $this->time_start
+            );
+            $content .= "\n" . $log_message;
         }
-        fwrite($fp, ob_get_contents());
-        // close the file
-        fclose($fp);
-        // Send the output to the browser
+
+        file_put_contents($this->cache_file_path, $content);
         ob_end_flush();
+    }
+
+    /**
+     * Clears the entire cache directory.
+     *
+     * @return void
+     */
+    public function clear_cache(): void
+    {
+        $files = glob($this->cache_folder_path . '*.html');
+        foreach ($files as $file) {
+            if (is_file($file)) {
+                unlink($file);
+            }
+        }
     }
 }

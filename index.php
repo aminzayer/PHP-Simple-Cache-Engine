@@ -1,29 +1,36 @@
 <?php
-//sample for testing php cache engine
+
+// Sample for testing the refactored PHP cache engine.
 require_once('cache-engine.php');
-$Cache_Expire_Time = 60 * 60 * 2; // Cache Expire Time is 2 Hours
-$My_Cache_Engine = new PHP_Cache_Engine($Cache_Expire_Time, true); // create cache engine class with loging
 
-$My_Cache_Engine->Cache_Start(); // cache started
+// Cache expires in 2 hours.
+$cache_expire_time = 60 * 60 * 2;
 
-// All Code & html codes between cache start and cache complete cached in file
+// Create a new cache engine instance.
+$cache_engine = new PHP_Cache_Engine($cache_expire_time, $_SERVER['REQUEST_URI'], true);
+
+// Start the cache.
+$cache_engine->start();
+
 ?>
 <!DOCTYPE html>
 <html>
 
 <head>
-
+    <title>PHP Cache Engine Test</title>
 </head>
 
 <body>
 
-    <h1>Sample Html With PHP Code For PHP Cache Engine</h1>
+    <h1>Sample HTML with PHP Code for PHP Cache Engine</h1>
 
-    <p>My first paragraph.</p><br>
-    <?php echo "<p> This is output of PHP Codes.</p>"; ?>
+    <p>This is a sample page to test the functionality of the PHP Cache Engine.</p>
+    <p>The current time is: <?php echo date('Y-m-d H:i:s'); ?></p>
+
 </body>
 
 </html>
 <?php
-$My_Cache_Engine->Cache_Complete(); // cache complete
-?>
+
+// Complete the cache.
+$cache_engine->complete();
